@@ -1,11 +1,46 @@
+import mongoose from 'mongoose';
 import { Activity, Team, User, Workout } from '../models/index.js';
 
 export async function listActivities() {
   return Activity.find().lean();
 }
 
-export async function createActivity(_input: unknown) {
-  throw Object.assign(new Error('Activity validation is not implemented yet'), { status: 501 });
+export async function createActivity(input: unknown) {
+  if (typeof input !== 'object' || input === null) {
+    throw Object.assign(new Error('Activity details are required'), { status: 400 });
+  }
+
+  const { userId, teamId, type, minutes } = input as Record<string, unknown>;
+  if (
+    typeof userId !== 'string' ||
+    !/^[a-f\d]{24}$/i.test(userId) ||
+    typeof teamId !== 'string' ||
+    !/^[a-f\d]{24}$/i.test(teamId) ||
+    typeof type !== 'string' ||
+    type.trim().length === 0 ||
+    typeof minutes !== 'number' ||
+    !Number.isFinite(minutes) ||
+    minutes < 1
+  ) {
+    throw Object.assign(new Error('Activity details are invalid'), { status: 400 });
+  }
+
+  const [user, team] = await Promise.all([
+    User.exists({ _id: new mongoose.Types.ObjectId(userId) }),
+    Team.exists({ _id: new mongoose.Types.ObjectId(teamId) }),
+  ]);
+  if (!user || !team) {
+    throw Object.assign(new Error('Activity user or team was not found'), { status: 404 });
+  }
+
+  return Activity.create({
+    user: userId,
+    team: teamId,
+    type: type.trim(),
+    minutes,
+    points: minutes,
+    occurredAt: new Date(),
+  });
 }
 
 export async function listTeams() {
