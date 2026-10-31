@@ -115,14 +115,18 @@ export async function suggestWorkouts(userEmail: string) {
     minutesByFocus.set(focus, (minutesByFocus.get(focus) ?? 0) + activity.minutes);
     typeByFocus.set(focus, activity.type);
   }
-  const [recentFocus] = [...minutesByFocus.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  const workouts = await Workout.find().sort({ title: 1 }).lean();
+  // Prefer the most-trained focus that actually has a workout; otherwise fall back to the user's goal.
+  const recentFocus = [...minutesByFocus.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([activityFocus]) => activityFocus)
+    .find((activityFocus) => workouts.some((workout) => workout.focus === activityFocus));
 
   const focus = recentFocus ?? user.fitnessGoal;
   const reason = recentFocus
     ? `Based on your recent ${typeByFocus.get(recentFocus)} activity, this builds ${focus}.`
     : `Matches your ${focus} fitness goal; log an activity to personalize suggestions.`;
 
-  const workouts = await Workout.find().sort({ title: 1 }).lean();
   return [...workouts]
     .sort((a, b) => Number(b.focus === focus) - Number(a.focus === focus))
     .map((workout) => ({ ...workout, reason: workout.focus === focus ? reason : `Alternative ${workout.focus} workout.` }));
