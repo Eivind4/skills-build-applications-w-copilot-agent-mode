@@ -1,31 +1,29 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { getJson } from '../api/client.js';
 
 type Props<T> = {
   title: string;
   description: string;
-  path: string;
-  select: (body: any) => T[];
+  load: () => Promise<T[]>;
   emptyText: string;
   renderItem: (item: T) => ReactNode;
 };
 
 type State<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; items: T[] };
 
-export function DataCard<T>({ title, description, path, select, emptyText, renderItem }: Props<T>) {
+export function DataCard<T>({ title, description, load, emptyText, renderItem }: Props<T>) {
   const [state, setState] = useState<State<T>>({ status: 'loading' });
 
   useEffect(() => {
     let active = true;
     setState({ status: 'loading' });
-    getJson(path)
-      .then((body) => active && setState({ status: 'ready', items: select(body) ?? [] }))
+    load()
+      .then((items) => active && setState({ status: 'ready', items: items ?? [] }))
       .catch((error: Error) => active && setState({ status: 'error', message: error.message }));
     return () => {
       active = false;
     };
-    // select is a stable, module-level function in each caller
-  }, [path]);
+    // load is a stable, module-level function in each caller
+  }, [load]);
 
   return (
     <section className="card h-100">
